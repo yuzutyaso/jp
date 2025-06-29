@@ -76,7 +76,7 @@ app.get('/api/search', async (req, res) => {
     }
 
     try {
-        const url = `${INVIDIOUS_INSTANCE}/search?q=${encodeURIComponent(q)}`;
+        const url = `${INVIDIOUS_INSTANCE}/api/v1/search?q=${encodeURIComponent(q)}`;
         const { data } = await axios.get(url);
         const $ = cheerio.load(data);
 
