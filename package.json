@@ -15,6 +15,6 @@
     "cheerio": "^1.0.0-rc.x",
     "cors": "^2.x.x",
     "express": "^4.x.x",
-    "dotenv": "^X.X.X"  
+    "dotenv": "^16.x.x" 
   }
 }
