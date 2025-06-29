@@ -68,7 +68,19 @@ app.get('/api/popular', async (req, res) => {
     }
 });
 
-// 2. 検索結果の取得
+// ... (既存のrequireやapp.useなどの設定はそのまま) ...
+
+// ヘルパー関数：Invidiousの相対URLを絶対URLに変換 (これは必要なくなる可能性が高いですが、念のため残します)
+const getAbsoluteUrl = (path) => {
+    if (!path) return null;
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+        return path;
+    }
+    return `${INVIDIOUS_INSTANCE}${path.startsWith('/') ? '' : '/'}${path}`;
+};
+
+
+// 2. 検索結果の取得 (ここを修正)
 app.get('/api/search', async (req, res) => {
     const { q } = req.query; // クエリパラメータ 'q' を取得
     if (!q) {
@@ -76,31 +88,48 @@ app.get('/api/search', async (req, res) => {
     }
 
     try {
-        const url = `${INVIDIOUS_INSTANCE}/api/v1/search?q=${encodeURIComponent(q)}`;
-        const { data } = await axios.get(url);
-        const $ = cheerio.load(data);
+        // Invidiousインスタンスの公式（または準公式）検索APIを使用
+        // URLの形式は "INVIDIOUS_INSTANCE/api/v1/search?q=検索クエリ" となります
+        const invidiousApiUrl = `${INVIDIOUS_INSTANCE}/api/v1/search?q=${encodeURIComponent(q)}`;
 
-        const searchResults = [];
-        $('.pure-g.loop > .pure-u-1').each((i, element) => {
-            const videoId = getAttr($(element).find('h3 a'), 'href')?.split('v=')[1];
-            if (!videoId) return;
+        const { data } = await axios.get(invidiousApiUrl);
 
-            searchResults.push({
-                title: getText($(element).find('h3 a')),
-                videoId: videoId,
-                thumbnail: getAttr($(element).find('img'), 'src'),
-                author: getText($(element).find('.channel-name')),
-                views: getText($(element).find('.stat:contains("views")')),
-                uploadedAt: getText($(element).find('.stat:contains("ago")')),
-                url: getAbsoluteUrl(getAttr($(element).find('h3 a'), 'href'))
-            });
-        });
+        // InvidiousのAPIレスポンスは通常、すでにJSON形式で整形されているため、
+        // Cheerioを使ったHTMLパースは不要になります。
+        // APIレスポンスの構造に応じて、データを整形します。
+
+        const searchResults = data.map(item => {
+            // APIレスポンスのフィールド名に合わせて調整してください
+            // InvidiousのAPIレスポンスの典型的な構造を想定しています
+            if (item.type === 'video') {
+                return {
+                    title: item.title,
+                    videoId: item.videoId,
+                    thumbnail: getAbsoluteUrl(item.videoThumbnails?.[0]?.url || item.thumbnail), // APIによる
+                    author: item.author,
+                    views: item.viewCount ? `${item.viewCount.toLocaleString()} views` : null, // 数値を整形
+                    uploadedAt: item.publishedText, // "3 weeks ago"など
+                    url: getAbsoluteUrl(`/watch?v=${item.videoId}`) // Invidiousの視聴URLを再構築
+                };
+            }
+            // 必要に応じてplaylist, channelなどのタイプも処理
+            return null;
+        }).filter(item => item !== null); // nullをフィルタリング
+
         res.json(searchResults);
+
     } catch (error) {
-        console.error('Error fetching search results:', error);
-        res.status(500).json({ error: 'Failed to fetch search results' });
+        console.error('Error fetching search results from Invidious API:', error.message);
+        // axiosのエラーレスポンスがあれば詳細をログに
+        if (error.response) {
+            console.error('Invidious API error response status:', error.response.status);
+            console.error('Invidious API error response data:', error.response.data);
+        }
+        res.status(500).json({ error: 'Failed to fetch search results from Invidious API' });
     }
 });
+
+// ... (他のエンドポイントはそのまま、または同様にAPI利用に修正) ...
 
 // 3. 動画情報の取得 (フォーマットURLを含む)
 app.get('/api/video/:videoId', async (req, res) => {
