@@ -7,7 +7,7 @@ const cors = require('cors');
 const app = express();
 const PORT = process.env.PORT || 3000;
 // デフォルトのInvidiousインスタンスを設定。環境変数で上書き可能。
-const INVIDIOUS_INSTANCE = process.env.INVIDIOUS_INSTANCE || 'https://lekker.gay';
+const INVIDIOUS_INSTANCE = 'https://lekker.gay';
 
 // CORSを有効にし、JSONボディをパースできるように設定
 app.use(cors());
